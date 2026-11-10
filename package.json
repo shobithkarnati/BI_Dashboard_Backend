@@ -1,0 +1,24 @@
+{
+  "name": "bluewheel-bi-backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "API for the BlueWheel BI Dashboard (master-app). Runs on Google Cloud Run.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "cloudrun:env": "node scripts/cloudrun-env.mjs",
+    "lint": "oxlint api tests scripts server.js routes.js shared",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "oxlint": "^1.71.0",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.15"
+  }
+}

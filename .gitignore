@@ -1,0 +1,16 @@
+node_modules
+coverage
+.DS_Store
+
+# Secrets and settings: never in GitHub
+.env
+.env.*
+*.local
+*.pem
+*service-account*.json
+
+# Kept on this computer only, by choice (same as master-app)
+/docs/
+/README.md
+/tests/
+/build_docs/
