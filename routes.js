@@ -12,6 +12,7 @@ import partnersAccount from './api/partners/account.js';
 import partnersSheets from './api/partners/sheets.js';
 import productsCatalog from './api/products/catalog.js';
 import productsChange from './api/products/change.js';
+import productsPricing from './api/products/pricing.js';
 import productsHistory from './api/products/history.js';
 import productsUndo from './api/products/undo.js';
 import productsVehicles from './api/products/vehicles.js';
@@ -29,6 +30,7 @@ export const ROUTES = {
   'products/catalog': productsCatalog,
   'products/change': productsChange,
   'products/history': productsHistory,
+  'products/pricing': productsPricing,
   'products/undo': productsUndo,
   'products/vehicles': productsVehicles,
   'users/data': usersData,

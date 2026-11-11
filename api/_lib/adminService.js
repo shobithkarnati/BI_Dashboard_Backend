@@ -1,20 +1,17 @@
 /**
  * The admin page's rules, with the Firebase Auth and Firestore calls injected so every rule can be
- * tested without a network. Nothing here trusts the browser: ids, passwords and dashboard lists are
- * validated again, an admin cannot lock themselves or the last active admin out, and every change is
- * written to the audit log (never with a password in it).
- * After a disable, delete, password reset or sign-out, the guard's cached account status and the
- * cached grant for that user are dropped, so this server stops accepting the old session at once.
+ * tested without a network. Nothing here trusts the browser: ids and dashboard lists are validated
+ * again, an admin cannot lock themselves or the last active admin out, and every change is written to
+ * the audit log.
+ * Accounts are never created here: sign-in is Microsoft only, and a person's account is made by their
+ * first Microsoft sign-in (with no dashboards until an admin grants them).
+ * After a disable, delete or sign-out, the guard's cached account status and the cached grant for that
+ * user are dropped, so this server stops accepting the old session at once.
  */
 
 import { DASHBOARDS, AUTH_EMAIL_DOMAIN, normalizeIdentity, getDashboards } from './authorize.js';
 import { mergeGrants } from './access.js';
 import { forgetAccount as forgetCachedAccount } from './guard.js';
-
-// Deliberately simple: one @, no spaces, a dot in the domain. Firebase does its own stricter check.
-export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const MIN_PASSWORD_LENGTH = 8;
-export const MAX_PASSWORD_LENGTH = 128;
 
 /** An error whose message is safe to show the admin. */
 export class AdminError extends Error {
@@ -22,19 +19,6 @@ export class AdminError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-export function parseEmail(value) {
-  const email = String(value ?? '').trim().toLowerCase();
-  if (email.length > 254 || !EMAIL_PATTERN.test(email)) throw new AdminError('Enter a valid email address.');
-  return email;
-}
-
-export function parsePassword(value) {
-  if (typeof value !== 'string' || value.length < MIN_PASSWORD_LENGTH || value.length > MAX_PASSWORD_LENGTH) {
-    throw new AdminError(`Password must be ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters.`);
-  }
-  return value;
 }
 
 /** A list of known dashboard ids, de-duplicated and in canonical order. "*" is not accepted from the page. */
@@ -94,22 +78,6 @@ export function createAdminService({ identity, access, env = process.env, forget
         .sort((a, b) => a.userId.localeCompare(b.userId));
     },
 
-    async createUser(actor, { email: rawEmail, password, dashboards }) {
-      const email = parseEmail(rawEmail);
-      const secret = parsePassword(password);
-      const grants = parseDashboards(dashboards ?? []);
-      const user = await identity.createUser({ email, password: secret });
-      try {
-        await access.writeGrant(email, grants, actor.email);
-      } catch (err) {
-        await identity.deleteUser(user.uid).catch(() => {}); // do not leave an account with no recorded access
-        throw err;
-      }
-      await log(actor, 'user.create', email, `dashboards: ${grants.join(', ') || 'none'}`);
-      const merged = mergeGrants(email, grants, env);
-      return { ...user, userId: displayId(email), dashboards: merged, isAdmin: merged.includes('admin'), adminFromConfig: getDashboards(email, env.DASHBOARD_ACCESS).includes('admin'), source: 'database' };
-    },
-
     async setAccess(actor, uid, dashboards) {
       const grants = parseDashboards(dashboards);
       const target = await load(uid);
@@ -141,16 +109,6 @@ export function createAdminService({ identity, access, env = process.env, forget
       forget(target);
       await log(actor, disabled ? 'user.disable' : 'user.enable', target.email);
       return { uid: target.uid, disabled };
-    },
-
-    async setPassword(actor, uid, password) {
-      const secret = parsePassword(password);
-      const target = await load(uid);
-      await identity.setPassword(target.uid, secret);
-      await identity.revokeSessions(target.uid); // the old password's sessions end with it
-      forget(target);
-      await log(actor, 'user.password-reset', target.email);
-      return { uid: target.uid };
     },
 
     async revokeSessions(actor, uid) {

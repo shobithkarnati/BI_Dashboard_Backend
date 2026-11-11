@@ -48,9 +48,10 @@ const quoteWord = (w) => { if (!SAFE_WORD.test(w)) throw new Error('bad word'); 
 
 /**
  * `q` / `dml`: BigQuery calls (./bq.js). `allowed`: { type: [entities] } from the sub-modules.
+ * `undoable`: extra entities a batch may contain for Undo (the rows a price change writes) that no request may name.
  * Returns the shared engine plus the table helpers sub-modules use for their own reads.
  */
-export function createChangeEngine({ q, dml, project, srcDataset = 'zmater', ctlDataset = 'pricing_control', allowed = {}, checks = [] }) {
+export function createChangeEngine({ q, dml, project, srcDataset = 'zmater', ctlDataset = 'pricing_control', allowed = {}, checks = [], undoable = [] }) {
   const src = (t) => `\`${project}.${srcDataset}.${t}\``;
   const ctl = (t) => `\`${project}.${ctlDataset}.${t}\``;
   const live = (e) => ctl(`${REGISTRY[e].table}_live`);
@@ -161,7 +162,7 @@ export function createChangeEngine({ q, dml, project, srcDataset = 'zmater', ctl
     const have = await q(`SELECT entity_type AS t, COUNT(*) AS n FROM ${ctl('change_log')} WHERE batch_id = @b AND status = 'ACTIVE' GROUP BY 1`, { b: batchId });
     if (!have.length) throw new HttpError(404, 'Nothing to undo. It may already be undone.');
     // Only changes this app can make may be undone here (not, say, a price change made in the v4 app).
-    const permitted = allowedEntities(allowed);
+    const permitted = new Set([...allowedEntities(allowed), ...undoable]);
     if (have.some((r) => !permitted.has(r.t))) throw new HttpError(403, 'This change was made in another tool and cannot be undone here.');
     const n = await revertBatch(batchId, who);
     console.log(JSON.stringify({ audit: true, who, undo: batchId, rows: n }));

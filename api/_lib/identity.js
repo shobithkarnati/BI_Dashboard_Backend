@@ -1,7 +1,8 @@
 /**
  * Firebase Auth user management over the Identity Toolkit REST API, as the service account.
  * Same transport as the account-active check in guard.js (no firebase-admin: it broke when bundled).
- * Only the fields the admin page needs are ever returned: never password hashes or salts.
+ * List, look up, disable, sign out everywhere and delete only: accounts are made by a person's first
+ * Microsoft sign-in, never here, and no passwords exist. Only the fields the admin page needs are returned.
  */
 
 import { googleFetch, GoogleApiError, SCOPES } from './google.js';
@@ -22,9 +23,7 @@ const toUser = (u) => ({
 function fail(status, data, what) {
   const code = errorCode(data);
   console.error(`Identity Toolkit error (${what}):`, code || `HTTP ${status}`);
-  if (code === 'EMAIL_EXISTS') throw new GoogleApiError('A user with that email already exists.', 409);
   if (code === 'INVALID_EMAIL') throw new GoogleApiError('Enter a valid email address.', 400);
-  if (code === 'WEAK_PASSWORD') throw new GoogleApiError('That password is too weak.', 400);
   if (code === 'USER_NOT_FOUND' || code === 'INVALID_LOCAL_ID') throw new GoogleApiError('That user no longer exists.', 404);
   throw new GoogleApiError('Could not complete the user change.', 502);
 }
@@ -53,14 +52,8 @@ export async function getUser(uid) {
   return toUser(data.users[0]);
 }
 
-export async function createUser({ email, password }) {
-  const data = await call('/accounts', 'create user', { body: { email, password, emailVerified: false, disabled: false } });
-  return getUser(data.localId);
-}
-
 const update = (uid, fields, what) => call('/accounts:update', what, { body: { localId: uid, ...fields } });
 export const setDisabled = (uid, disabled) => update(uid, { disableUser: Boolean(disabled) }, 'disable user');
-export const setPassword = (uid, password) => update(uid, { password }, 'set password');
 /** Invalidates every refresh token issued before now: the user is signed out on all devices. */
 export const revokeSessions = (uid) => update(uid, { validSince: String(Math.floor(Date.now() / 1000)) }, 'revoke sessions');
 export const deleteUser = (uid) => call('/accounts:delete', 'delete user', { body: { localId: uid } });

@@ -8,7 +8,7 @@ import { MODULES, allowedChanges } from './modules/index.js';
 export { HttpError } from './engine/changes.js';
 
 export function createProductsService({ q, dml, project, srcDataset, ctlDataset, modules = MODULES }) {
-  const engine = createChangeEngine({ q, dml, project, srcDataset, ctlDataset, allowed: allowedChanges(modules), checks: modules.map((m) => m.checkChange).filter(Boolean) });
+  const engine = createChangeEngine({ q, dml, project, srcDataset, ctlDataset, allowed: allowedChanges(modules), checks: modules.map((m) => m.checkChange).filter(Boolean), undoable: modules.flatMap((m) => m.undoableEntities || []) });
   const service = { change: engine.change, history: engine.history, batch: engine.batch, undo: engine.undo };
   for (const m of modules) service[m.id] = m.createQueries(engine.tables);
   return service;

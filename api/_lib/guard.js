@@ -3,7 +3,7 @@
  *   1. method must be GET (admin endpoints list the extra methods they accept) (405)
  *   2. exact-origin check, a second layer only                  (403)
  *   3. Firebase ID token verified server-side (jose, Google's    (401)
- *      public keys), signed in with email + password only
+ *      public keys), signed in with Microsoft only (assertSignInAllowed)
  *   4. account still active: not disabled, deleted or revoked   (401)
  *   5. the account is authorised for the endpoint's dashboard   (403), deny by default
  * Responses never include tokens, keys or internals; the real reason goes to the server log.
@@ -70,8 +70,30 @@ export async function verifyFirebaseIdToken(token, { projectId = process.env.FIR
   return { ...payload, uid: payload.sub };
 }
 
-/** Only email + password accounts may use the dashboards (not anonymous, phone, custom-token or federated sign-ins). */
-export const ALLOWED_SIGN_IN_PROVIDER = 'password';
+/**
+ * Sign-in is Microsoft only: Microsoft work accounts through Firebase's "microsoft.com" provider. Email + password,
+ * anonymous, phone, custom-token, Google and every other sign-in are refused, so an old password session stops working.
+ */
+export const MICROSOFT_SIGN_IN_PROVIDER = 'microsoft.com';
+
+/** "a.com, B.org" -> ['a.com', 'b.org'] (empty when the setting is missing). */
+const emailDomains = (raw) => String(raw || '').split(',').map((d) => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
+
+/**
+ * Throws unless this token is a Microsoft sign-in whose email domain is listed in SSO_ALLOWED_EMAIL_DOMAINS
+ * (comma separated). With that setting missing, every sign-in is refused (deny by default): the email decides
+ * who gets which dashboards, so it must come from your own company's directory, never from another tenant.
+ */
+export function assertSignInAllowed(claims, env = process.env) {
+  const provider = claims?.firebase?.sign_in_provider;
+  if (provider !== MICROSOFT_SIGN_IN_PROVIDER) throw new Error(`Sign-in provider "${String(provider)}" is not allowed.`);
+  const domains = emailDomains(env.SSO_ALLOWED_EMAIL_DOMAINS);
+  if (!domains.length) throw new Error('Microsoft sign-in is not enabled (SSO_ALLOWED_EMAIL_DOMAINS is not set).');
+  const email = typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : '';
+  const parts = email.split('@');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) throw new Error('Microsoft sign-in has no usable email.');
+  if (!domains.includes(parts[1])) throw new Error(`Microsoft sign-in email domain "${parts[1]}" is not allowed.`);
+}
 
 const accountStatus = new Map(); // uid -> { account, expiresAt }
 
@@ -145,8 +167,7 @@ export function createGuard(deps = {}) {
     let claims;
     try {
       claims = await verify(idToken);
-      const provider = claims?.firebase?.sign_in_provider;
-      if (provider !== ALLOWED_SIGN_IN_PROVIDER) throw new Error(`Sign-in provider "${String(provider)}" is not allowed.`);
+      assertSignInAllowed(claims, env);
       await assertActive(claims);
     } catch (err) {
       console.error('Authentication rejected:', err.message);

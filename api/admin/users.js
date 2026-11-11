@@ -1,10 +1,10 @@
 /**
  * /api/admin/users: the admin page's user and access management (needs the `admin` permission).
  *   GET                         list accounts with their effective dashboards
- *   POST                        create { email, password, dashboards }
- *   PATCH  ?uid=<uid>           { action: 'setAccess' | 'setDisabled' | 'setPassword' | 'revokeSessions', ... }
+ *   PATCH  ?uid=<uid>           { action: 'setAccess' | 'setDisabled' | 'revokeSessions', ... }
  *   DELETE ?uid=<uid>           delete the account and its access record
- * Rules and validation live in _lib/adminService.js. Responses never include passwords or hashes.
+ * Accounts are not created here: sign-in is Microsoft only and the first sign-in makes the account.
+ * Rules and validation live in _lib/adminService.js.
  */
 
 import { guard } from '../_lib/guard.js';
@@ -14,7 +14,7 @@ import * as access from '../_lib/access.js';
 import { createAdminService } from '../_lib/adminService.js';
 import { run, sendError } from '../_lib/adminHttp.js';
 
-const METHODS = ['GET', 'POST', 'PATCH', 'DELETE'];
+const METHODS = ['GET', 'PATCH', 'DELETE'];
 const service = createAdminService({ identity, access });
 
 export default async function handler(req, res) {

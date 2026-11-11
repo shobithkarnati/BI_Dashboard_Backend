@@ -19,13 +19,10 @@ export async function run(req, svc) {
   switch (req.method) {
     case 'GET':
       return [200, { users: await svc.listUsers() }];
-    case 'POST':
-      return [201, { user: await svc.createUser(req.actor, body) }];
     case 'PATCH':
       switch (body.action) {
         case 'setAccess': return [200, await svc.setAccess(req.actor, uid, body.dashboards)];
         case 'setDisabled': return [200, await svc.setDisabled(req.actor, uid, body.disabled)];
-        case 'setPassword': return [200, await svc.setPassword(req.actor, uid, body.password)];
         case 'revokeSessions': return [200, await svc.revokeSessions(req.actor, uid)];
         default: throw new AdminError('Unknown action.');
       }

@@ -15,7 +15,7 @@ import path from 'node:path';
 import { parseEnv } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
-export const LEAVE_OUT = new Set(['FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY', 'ALLOWED_ORIGIN', 'PORT', 'K_SERVICE']);
+export const LEAVE_OUT = new Set(['GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY', 'ALLOWED_ORIGIN', 'PORT', 'K_SERVICE']);
 export const REQUIRED = ['FIREBASE_PROJECT_ID', 'BQ_PROJECT_ID', 'DASHBOARD_ACCESS'];
 
 /** "https://a, https://b/" -> ['https://a', 'https://b'], or null when empty or any address is not a plain https origin. */
